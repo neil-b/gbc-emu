@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 #[derive(Clone)]
 struct MemoryBank {
     bytes: Vec<u8>,
@@ -10,15 +12,15 @@ impl MemoryBank {
         }
     }
 
-    fn read(&self, address: u16) -> u8 {
-        match self.bytes.get(address as usize) {
+    fn read(&self, address: usize) -> u8 {
+        match self.bytes.get(address) {
             Some(&value) => value,
             None => panic!("Bad read {}", address),
         }
     }
 
-    fn write(&mut self, address: u16, new_value: u8) {
-        match self.bytes.get_mut(address as usize) {
+    fn write(&mut self, address: usize, new_value: u8) {
+        match self.bytes.get_mut(address) {
             Some(value) => *value = new_value,
             None => panic!("Bad write {}", address),
         };
@@ -51,6 +53,12 @@ impl PagedMemoryBank {
     }
 }
 
+const ROM_PAGE_SIZE: usize = 65536;
+const VIDEO_RAM_SIZE: usize = 8192;
+const CARTRIDGE_RAM_SIZE: usize = 8192;
+const WORK_RAM_PAGE_SIZE: usize = 4096;
+const WORK_RAM_PAGE_COUNT: usize = 8;
+
 // Maps 16 bit memory addresses to the appropriate MemoryBank
 pub struct MemoryMapping {
     rom_primary: MemoryBank,
@@ -62,20 +70,32 @@ pub struct MemoryMapping {
 }
 
 impl MemoryMapping {
-    pub fn new(rom_page_count: usize) -> MemoryMapping {
-        const ROM_PAGE_SIZE: usize = 65536;
-        const VIDEO_RAM_SIZE: usize = 8192;
-        const CARTRIDGE_RAM_SIZE: usize = 8192;
-        const WORK_RAM_PAGE_SIZE: usize = 4096;
-        const WORK_RAM_PAGE_COUNT: usize = 8;
-
+    pub fn new() -> MemoryMapping {
         MemoryMapping {
             rom_primary: MemoryBank::new(ROM_PAGE_SIZE),
-            rom_secondary: PagedMemoryBank::new(ROM_PAGE_SIZE, rom_page_count - 1),
+            rom_secondary: PagedMemoryBank::new(ROM_PAGE_SIZE, 0),
             video_ram: MemoryBank::new(VIDEO_RAM_SIZE),
             cartridge_ram: MemoryBank::new(CARTRIDGE_RAM_SIZE),
             work_ram_primary: MemoryBank::new(WORK_RAM_PAGE_SIZE),
             work_ram_secondary: PagedMemoryBank::new(WORK_RAM_PAGE_SIZE, WORK_RAM_PAGE_COUNT - 1),
+        }
+    }
+
+    pub fn load_rom(&mut self, rom_bytes: Vec<u8>) {
+        let rom_page_count: usize = max(1, rom_bytes.len() / ROM_PAGE_SIZE);
+        self.rom_secondary = PagedMemoryBank::new(ROM_PAGE_SIZE, rom_page_count - 1);
+
+        let mut banks: Vec<&mut MemoryBank> = vec![&mut self.rom_primary];
+        for mut page in &mut self.rom_secondary.pages {
+            banks.push(page);
+        }
+
+        let chunks: Vec<&[u8]> = rom_bytes.chunks(ROM_PAGE_SIZE).collect();
+
+        for chunk_index in 0..chunks.len() {
+            for byte_index in 0..chunks[chunk_index].len() {
+                banks[chunk_index].write(byte_index, chunks[chunk_index][byte_index]);
+            }
         }
     }
 
@@ -143,5 +163,22 @@ mod tests {
     fn test_paged_bank_page_oob() {
         let bank = PagedMemoryBank::new(100, 5);
         bank.get_page(100);
+    }
+
+    #[test]
+    fn test_load_rom() {
+        const NUM_PAGES: usize = 4;
+        const ADDRESS_OFFSET: usize = 50;
+        let mut bytes = vec![1; ROM_PAGE_SIZE * NUM_PAGES];
+        bytes[ADDRESS_OFFSET] = 2;
+        bytes[ROM_PAGE_SIZE + ADDRESS_OFFSET] = 3;
+        bytes[ROM_PAGE_SIZE * 2 + ADDRESS_OFFSET] = 4;
+
+        let mut mapping = MemoryMapping::new();
+        mapping.load_rom(bytes);
+        assert_eq!(mapping.rom_secondary.pages.len(), NUM_PAGES - 1);
+        assert_eq!(mapping.rom_primary.read(ADDRESS_OFFSET), 2);
+        assert_eq!(mapping.rom_secondary.get_page(0).read(ADDRESS_OFFSET), 3);
+        assert_eq!(mapping.rom_secondary.get_page(1).read(ADDRESS_OFFSET), 4);
     }
 }
