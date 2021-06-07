@@ -12,7 +12,7 @@ impl MemoryBank {
         }
     }
 
-    fn read(&self, address: usize) -> u8 {
+    fn read8(&self, address: usize) -> u8 {
         match self.bytes.get(address) {
             Some(&value) => value,
             None => panic!("Bad read {}", address),
@@ -99,7 +99,7 @@ impl MemoryMapping {
         }
     }
 
-    pub fn get_bank_mut(&mut self, address: u16, page_index: usize) -> &mut MemoryBank {
+    fn get_bank_mut(&mut self, address: u16, page_index: usize) -> &mut MemoryBank {
         const ROM_PRIMARY_START: u16 = 0x0000;
         const ROM_PRIMARY_END: u16 = 0x3FFF;
         const ROM_SECONDARY_START: u16 = 0x4000;
@@ -122,6 +122,46 @@ impl MemoryMapping {
             _ => panic!("Read out of bounds at {}", address),
         }
     }
+
+    // TODO: merge with get_bank_mut
+    fn get_bank(&self, address: u16, page_index: usize) -> &MemoryBank {
+        const ROM_PRIMARY_START: u16 = 0x0000;
+        const ROM_PRIMARY_END: u16 = 0x3FFF;
+        const ROM_SECONDARY_START: u16 = 0x4000;
+        const ROM_SECONDARY_END: u16 = 0x7FFF;
+        const VIDEO_RAM_START: u16 = 0x8000;
+        const VIDEO_RAM_END: u16 = 0x9FFF;
+        const CARTRIDGE_RAM_START: u16 = 0xA000;
+        const CARTRIDGE_RAM_END: u16 = 0xBFFF;
+        const WORK_RAM_PRIMARY_START: u16 = 0xC000;
+        const WORK_RAM_PRIMARY_END: u16 = 0xCFFF;
+        const WORK_RAM_SECONDARY_START: u16 = 0xD000;
+        const WORK_RAM_SECONDARY_END: u16 = 0xDFFF;
+        match address {
+            ROM_PRIMARY_START ..= ROM_PRIMARY_END => &self.rom_primary,
+            ROM_SECONDARY_START ..= ROM_SECONDARY_END => self.rom_secondary.get_page(page_index),
+            VIDEO_RAM_START ..= VIDEO_RAM_END => &self.video_ram,
+            CARTRIDGE_RAM_START ..= CARTRIDGE_RAM_END => &self.cartridge_ram,
+            WORK_RAM_PRIMARY_START ..= WORK_RAM_PRIMARY_END => &self.work_ram_primary,
+            WORK_RAM_SECONDARY_START ..= WORK_RAM_SECONDARY_END => self.work_ram_secondary.get_page(page_index),
+            _ => panic!("Read out of bounds at {}", address),
+        }
+    }
+
+    pub fn read8(&self, address: u16, page_index: usize) -> u8 {
+        self.get_bank(address, page_index).read8(address.into())
+    }
+
+    pub fn read16(&self, address: u16, page_index: usize) -> u16 {
+        let bank = self.get_bank(address, page_index);
+        let low: u8 = bank.read8(address.into());
+        let high: u8 = bank.read8((address + 1).into());
+        (high as u16) << 8 | (low as u16)
+    }
+
+    pub fn write(&mut self, address: u16, page_index: usize, new_value: u8) {
+        self.get_bank_mut(address, page_index).write(address.into(), new_value);
+    }
 }
 
 #[cfg(test)]
@@ -129,10 +169,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bank_write_read() {
+    fn test_bank_write_read8() {
         let mut bank = MemoryBank::new(100);
         bank.write(5, 123);
-        assert_eq!(bank.read(5), 123);
+        assert_eq!(bank.read8(5), 123);
     }
 
     #[test]
@@ -146,16 +186,16 @@ mod tests {
     #[should_panic]
     fn test_bank_read_oob() {
         let bank = MemoryBank::new(100);
-        bank.read(100);
+        bank.read8(100);
     }
 
     #[test]
-    fn test_paged_bank_write_read() {
+    fn test_paged_bank_write_read8() {
         let mut bank = PagedMemoryBank::new(100, 5);
         bank.get_page_mut(4).write(5,123);
         bank.get_page_mut(3).write(3, 1);
-        assert_eq!(bank.get_page(4).read(5), 123);
-        assert_eq!(bank.get_page(3).read(3), 1);
+        assert_eq!(bank.get_page(4).read8(5), 123);
+        assert_eq!(bank.get_page(3).read8(3), 1);
     }
 
     #[test]
@@ -177,8 +217,8 @@ mod tests {
         let mut mapping = MemoryMapping::new();
         mapping.load_rom(bytes);
         assert_eq!(mapping.rom_secondary.pages.len(), NUM_PAGES - 1);
-        assert_eq!(mapping.rom_primary.read(ADDRESS_OFFSET), 2);
-        assert_eq!(mapping.rom_secondary.get_page(0).read(ADDRESS_OFFSET), 3);
-        assert_eq!(mapping.rom_secondary.get_page(1).read(ADDRESS_OFFSET), 4);
+        assert_eq!(mapping.rom_primary.read8(ADDRESS_OFFSET), 2);
+        assert_eq!(mapping.rom_secondary.get_page(0).read8(ADDRESS_OFFSET), 3);
+        assert_eq!(mapping.rom_secondary.get_page(1).read8(ADDRESS_OFFSET), 4);
     }
 }
