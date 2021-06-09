@@ -15,14 +15,14 @@ impl MemoryBank {
     fn read8(&self, address: usize) -> u8 {
         match self.bytes.get(address) {
             Some(&value) => value,
-            None => panic!("Bad read {}", address),
+            None => panic!("Bad read {:#04x}", address),
         }
     }
 
     fn write(&mut self, address: usize, new_value: u8) {
         match self.bytes.get_mut(address) {
             Some(value) => *value = new_value,
-            None => panic!("Bad write {}", address),
+            None => panic!("Bad write {:#04x}", address),
         };
     }
 }
@@ -120,7 +120,7 @@ impl MemoryMapping {
             CARTRIDGE_RAM_START ..= CARTRIDGE_RAM_END => &mut self.cartridge_ram,
             WORK_RAM_PRIMARY_START ..= WORK_RAM_PRIMARY_END => &mut self.work_ram_primary,
             WORK_RAM_SECONDARY_START ..= WORK_RAM_SECONDARY_END => self.work_ram_secondary.get_page_mut(page_index),
-            _ => panic!("Read out of bounds at {}", address),
+            _ => panic!("Read out of bounds at {:#04x}", address),
         }
     }
 
@@ -133,7 +133,7 @@ impl MemoryMapping {
             CARTRIDGE_RAM_START ..= CARTRIDGE_RAM_END => &self.cartridge_ram,
             WORK_RAM_PRIMARY_START ..= WORK_RAM_PRIMARY_END => &self.work_ram_primary,
             WORK_RAM_SECONDARY_START ..= WORK_RAM_SECONDARY_END => self.work_ram_secondary.get_page(page_index),
-            _ => panic!("Read out of bounds at {}", address),
+            _ => panic!("Read out of bounds at {:#04x}", address),
         }
     }
 
