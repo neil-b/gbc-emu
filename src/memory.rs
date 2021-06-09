@@ -59,6 +59,19 @@ const CARTRIDGE_RAM_SIZE: usize = 8192;
 const WORK_RAM_PAGE_SIZE: usize = 4096;
 const WORK_RAM_PAGE_COUNT: usize = 8;
 
+const ROM_PRIMARY_START: u16 = 0x0000;
+const ROM_PRIMARY_END: u16 = 0x3FFF;
+const ROM_SECONDARY_START: u16 = 0x4000;
+const ROM_SECONDARY_END: u16 = 0x7FFF;
+const VIDEO_RAM_START: u16 = 0x8000;
+const VIDEO_RAM_END: u16 = 0x9FFF;
+const CARTRIDGE_RAM_START: u16 = 0xA000;
+const CARTRIDGE_RAM_END: u16 = 0xBFFF;
+const WORK_RAM_PRIMARY_START: u16 = 0xC000;
+const WORK_RAM_PRIMARY_END: u16 = 0xCFFF;
+const WORK_RAM_SECONDARY_START: u16 = 0xD000;
+const WORK_RAM_SECONDARY_END: u16 = 0xDFFF;
+
 // Maps 16 bit memory addresses to the appropriate MemoryBank
 pub struct MemoryMapping {
     rom_primary: MemoryBank,
@@ -100,18 +113,6 @@ impl MemoryMapping {
     }
 
     fn get_bank_mut(&mut self, address: u16, page_index: usize) -> &mut MemoryBank {
-        const ROM_PRIMARY_START: u16 = 0x0000;
-        const ROM_PRIMARY_END: u16 = 0x3FFF;
-        const ROM_SECONDARY_START: u16 = 0x4000;
-        const ROM_SECONDARY_END: u16 = 0x7FFF;
-        const VIDEO_RAM_START: u16 = 0x8000;
-        const VIDEO_RAM_END: u16 = 0x9FFF;
-        const CARTRIDGE_RAM_START: u16 = 0xA000;
-        const CARTRIDGE_RAM_END: u16 = 0xBFFF;
-        const WORK_RAM_PRIMARY_START: u16 = 0xC000;
-        const WORK_RAM_PRIMARY_END: u16 = 0xCFFF;
-        const WORK_RAM_SECONDARY_START: u16 = 0xD000;
-        const WORK_RAM_SECONDARY_END: u16 = 0xDFFF;
         match address {
             ROM_PRIMARY_START ..= ROM_PRIMARY_END => &mut self.rom_primary,
             ROM_SECONDARY_START ..= ROM_SECONDARY_END => self.rom_secondary.get_page_mut(page_index),
@@ -125,18 +126,6 @@ impl MemoryMapping {
 
     // TODO: merge with get_bank_mut
     fn get_bank(&self, address: u16, page_index: usize) -> &MemoryBank {
-        const ROM_PRIMARY_START: u16 = 0x0000;
-        const ROM_PRIMARY_END: u16 = 0x3FFF;
-        const ROM_SECONDARY_START: u16 = 0x4000;
-        const ROM_SECONDARY_END: u16 = 0x7FFF;
-        const VIDEO_RAM_START: u16 = 0x8000;
-        const VIDEO_RAM_END: u16 = 0x9FFF;
-        const CARTRIDGE_RAM_START: u16 = 0xA000;
-        const CARTRIDGE_RAM_END: u16 = 0xBFFF;
-        const WORK_RAM_PRIMARY_START: u16 = 0xC000;
-        const WORK_RAM_PRIMARY_END: u16 = 0xCFFF;
-        const WORK_RAM_SECONDARY_START: u16 = 0xD000;
-        const WORK_RAM_SECONDARY_END: u16 = 0xDFFF;
         match address {
             ROM_PRIMARY_START ..= ROM_PRIMARY_END => &self.rom_primary,
             ROM_SECONDARY_START ..= ROM_SECONDARY_END => self.rom_secondary.get_page(page_index),
